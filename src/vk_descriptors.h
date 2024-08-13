@@ -6,6 +6,7 @@
 #include <span>
 
 //> descriptor_layout
+
 struct DescriptorLayoutBuilder {
 
     std::vector<VkDescriptorSetLayoutBinding> bindings;
