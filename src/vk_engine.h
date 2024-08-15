@@ -10,6 +10,7 @@
 #include <functional>
 #include "vk_descriptors.h"
 #include "vk_loader.h"
+#include <camera.h>
 
 class VulkanEngine;
 
@@ -127,6 +128,7 @@ public:
 
 	struct SDL_Window* _window{ nullptr };
 
+	Camera mainCamera;
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;

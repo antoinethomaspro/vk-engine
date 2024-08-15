@@ -28,7 +28,6 @@
 constexpr bool bUseValidationLayers = true;
 
 //chapter stage for refactors/changes
-#define CHAPTER_STAGE 0
 
 //we want to immediately abort when there is an error. In normal engines this would give an error message to the user, or perform a dump of state.
 using namespace std;
@@ -70,45 +69,7 @@ void VulkanEngine::init()
 }
 
 void VulkanEngine::init_default_data() {
-	std::array<Vertex, 4> rect_vertices;
-
-	rect_vertices[0].position = { 0.5,-0.5, 0 };
-	rect_vertices[1].position = { 0.5,0.5, 0 };
-	rect_vertices[2].position = { -0.5,-0.5, 0 };
-	rect_vertices[3].position = { -0.5,0.5, 0 };
-
-	rect_vertices[0].color = { 0,0, 0,1 };
-	rect_vertices[1].color = { 0.5,0.5,0.5 ,1 };
-	rect_vertices[2].color = { 1,0, 0,1 };
-	rect_vertices[3].color = { 0,1, 0,1 };
-
-	rect_vertices[0].uv_x = 1;
-	rect_vertices[0].uv_y = 0;
-	rect_vertices[1].uv_x = 0;
-	rect_vertices[1].uv_y = 0;
-	rect_vertices[2].uv_x = 1;
-	rect_vertices[2].uv_y = 1;
-	rect_vertices[3].uv_x = 0;
-	rect_vertices[3].uv_y = 1;
-
-	std::array<uint32_t, 6> rect_indices;
-
-	rect_indices[0] = 0;
-	rect_indices[1] = 1;
-	rect_indices[2] = 2;
-
-	rect_indices[3] = 2;
-	rect_indices[4] = 1;
-	rect_indices[5] = 3;
-
-	rectangle = uploadMesh(std::span{ Suzanne_idx,Suzanne_idx_count }, std::span{ Suzanne_vtx,Suzanne_vtx_count });
-
-	//delete the rectangle data on engine shutdown
-	_mainDeletionQueue.push_function([&]() {
-		destroy_buffer(rectangle.indexBuffer);
-		destroy_buffer(rectangle.vertexBuffer);
-		});
-
+	
 	//> default_img
 		//3 default textures, white, grey, black. 1 pixel each
 	uint32_t white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));
@@ -183,7 +144,7 @@ void VulkanEngine::init_default_data() {
 	//< default_mat
 
 
-	testMeshes = loadGltfMeshes(this, "..\\assets\\basicmesh.glb").value();
+	testMeshes = loadGltfMeshes(this, "..\\assets\\cube.glb").value();
 
 	//> default_meshes
 	for (auto& m : testMeshes) {
@@ -220,10 +181,10 @@ void VulkanEngine::cleanup()
 			_frames[i]._deletionQueue.flush();
 		}
 
-		for (auto& mesh : testMeshes) {
+		/*for (auto& mesh : testMeshes) {
 			destroy_buffer(mesh->meshBuffers.indexBuffer);
 			destroy_buffer(mesh->meshBuffers.vertexBuffer);
-		}
+		}*/
 
 		metalRoughMaterial.clear_resources(_device);
 
@@ -290,39 +251,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 	//launch a draw command to draw 3 vertices
 	vkCmdDraw(cmd, 3, 1, 0, 0);
 
-#if CHAPTER_STAGE == 0
-	//> draw_tex
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipeline);
 
-	//bind a texture
-	VkDescriptorSet imageSet = get_current_frame()._frameDescriptors.allocate(_device, _singleImageDescriptorLayout);
-	{
-		DescriptorWriter writer;
-		writer.write_image(0, _errorCheckerboardImage.imageView, _defaultSamplerNearest, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-		writer.update_set(_device, imageSet);
-	}
-
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipelineLayout, 0, 1, &imageSet, 0, nullptr);
-
-	glm::mat4 view = glm::translate(glm::vec3{ 0,0,-5 });
-	// camera projection
-	glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
-
-	// invert the Y direction on projection matrix so that we are more similar
-	// to opengl and gltf axis
-	projection[1][1] *= -1;
-
-	GPUDrawPushConstants push_constants;
-	push_constants.worldMatrix = projection * view;
-	push_constants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddress;
-
-	vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-	vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-	vkCmdDrawIndexed(cmd, testMeshes[2]->surfaces[0].count, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
-	//< draw_tex
-#else
 
 	//allocate a new uniform buffer for the scene data
 	AllocatedBuffer gpuSceneDataBuffer = create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -360,7 +289,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
 		vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
 	}
-#endif
+
 
 	vkCmdEndRendering(cmd);
 
@@ -592,6 +521,7 @@ void VulkanEngine::run()
 			if (e.type == SDL_WINDOWEVENT_RESIZED) {
 
 			}
+			mainCamera.processSDLEvent(e);
 			ImGui_ImplSDL2_ProcessEvent(&e);
 		}
 
@@ -1318,6 +1248,11 @@ GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<V
 		});
 
 	destroy_buffer(staging);
+
+	_mainDeletionQueue.push_function([=]() {
+		destroy_buffer(newSurface.indexBuffer);
+		destroy_buffer(newSurface.vertexBuffer);
+		});
 
 	return newSurface;
 }
