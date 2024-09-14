@@ -17,8 +17,8 @@ glm::mat4 Camera::getRotationMatrix() const
     // fairly typical FPS style camera. we join the pitch and yaw rotations into
     // the final rotation matrix
 
-    glm::quat pitchRotation = glm::angleAxis(pitch, glm::vec3 { 1.f, 0.f, 0.f });
-    glm::quat yawRotation = glm::angleAxis(yaw, glm::vec3 { 0.f, -1.f, 0.f });
+    glm::quat pitchRotation = glm::angleAxis(pitch, glm::vec3{ 1.f, 0.f, 0.f });
+    glm::quat yawRotation = glm::angleAxis(yaw, glm::vec3{ 0.f, -1.f, 0.f });
 
     return glm::toMat4(yawRotation) * glm::toMat4(pitchRotation);
 }
@@ -26,24 +26,39 @@ glm::mat4 Camera::getRotationMatrix() const
 void Camera::processSDLEvent(SDL_Event& e)
 {
     if (e.type == SDL_KEYDOWN) {
-        if (e.key.keysym.sym == SDLK_w) { velocity.z = -1; }
-        if (e.key.keysym.sym == SDLK_s) { velocity.z = 1; }
-        if (e.key.keysym.sym == SDLK_a) { velocity.x = -1; }
-        if (e.key.keysym.sym == SDLK_d) { velocity.x = 1; }
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            // Release the mouse and make the cursor visible
+            SDL_SetRelativeMouseMode(SDL_FALSE);
+        }
+
+        // Movement keys
+        if (e.key.keysym.scancode == SDL_SCANCODE_W) { velocity.z = -1; }
+        if (e.key.keysym.scancode == SDL_SCANCODE_S) { velocity.z = 1; }
+        if (e.key.keysym.scancode == SDL_SCANCODE_A) { velocity.x = -1; }
+        if (e.key.keysym.scancode == SDL_SCANCODE_D) { velocity.x = 1; }
     }
 
     if (e.type == SDL_KEYUP) {
-        if (e.key.keysym.sym == SDLK_w) { velocity.z = 0; }
-        if (e.key.keysym.sym == SDLK_s) { velocity.z = 0; }
-        if (e.key.keysym.sym == SDLK_a) { velocity.x = 0; }
-        if (e.key.keysym.sym == SDLK_d) { velocity.x = 0; }
+        // Stop movement when keys are released
+        if (e.key.keysym.scancode == SDL_SCANCODE_W) { velocity.z = 0; }
+        if (e.key.keysym.scancode == SDL_SCANCODE_S) { velocity.z = 0; }
+        if (e.key.keysym.scancode == SDL_SCANCODE_A) { velocity.x = 0; }
+        if (e.key.keysym.scancode == SDL_SCANCODE_D) { velocity.x = 0; }
     }
 
     if (e.type == SDL_MOUSEMOTION) {
-        yaw += (float)e.motion.xrel / 200.f;
-        pitch -= (float)e.motion.yrel / 200.f;
+        if (SDL_GetRelativeMouseMode()) { // Only rotate if in relative mode
+            yaw += (float)e.motion.xrel / 200.f;
+            pitch -= (float)e.motion.yrel / 200.f;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN) {
+        // Recapture the mouse when clicked inside the window
+        SDL_SetRelativeMouseMode(SDL_TRUE);
     }
 }
+
 
 void Camera::update()
 {
